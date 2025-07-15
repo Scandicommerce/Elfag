@@ -446,54 +446,86 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
         console.error('Failed to get user company info:', companyError);
         throw new Error('Could not get company information');
       }
-
-      // Get the offeror's email from the message
-      const offerorEmail = selectedMessage.from_company.real_contact_info?.email;
       const offerorCompanyName = selectedMessage.from_company.real_contact_info?.company_name;
 
-      if (!offerorEmail) {
-        console.error('No offeror email available');
-        throw new Error('Could not get offeror email address');
-      }
-
       const emailSubject = `Tilbud Akseptert - ${selectedMessage.subject}`;
+      
+      // Plain text version
+      const plainTextMessage = `
+Hei ${offerorCompanyName || 'Tilbudsgiver'}!
+
+Ditt tilbud har blitt akseptert for prosjektet: ${selectedMessage.subject}
+
+Prosjektdetaljer:
+- Kompetanse: ${selectedMessage.resource.competence}
+- Oppdragsgiver: ${userCompany.real_contact_info.company_name}
+
+Kontaktinformasjon for oppdragsgiver:
+- Bedrift: ${userCompany.real_contact_info.company_name}
+- E-post: ${userCompany.real_contact_info.email}
+- Telefon: ${userCompany.real_contact_info.phone}
+- Adresse: ${userCompany.real_contact_info.address}
+
+Du kan nå kontakte oppdragsgiver direkte for å diskutere videre detaljer.
+
+Vennlig hilsen,
+Elfag Ressursdeling
+      `;
+
+      // HTML version with inline styles for better email client compatibility
       const emailHtml = `
-        <h2>Hei ${offerorCompanyName || 'Tilbudsgiver'}!</h2>
-        
-        <p>Ditt tilbud har blitt akseptert for prosjektet: <strong>${selectedMessage.subject}</strong></p>
-        
-        <h3>Prosjektdetaljer:</h3>
-        <ul>
-          <li><strong>Kompetanse:</strong> ${selectedMessage.resource.competence}</li>
-          <li><strong>Oppdragsgiver:</strong> ${userCompany.real_contact_info.company_name}</li>
-        </ul>
-        
-        <h3>Kontaktinformasjon for oppdragsgiver:</h3>
-        <ul>
-          <li><strong>Bedrift:</strong> ${userCompany.real_contact_info.company_name}</li>
-          <li><strong>E-post:</strong> ${userCompany.real_contact_info.email}</li>
-          <li><strong>Telefon:</strong> ${userCompany.real_contact_info.phone}</li>
-          <li><strong>Adresse:</strong> ${userCompany.real_contact_info.address}</li>
-        </ul>
-        
-        <p>Du kan nå kontakte oppdragsgiver direkte for å diskutere videre detaljer.</p>
-        
-        <p><strong>Vennlig hilsen,<br>Elfag Ressursdeling</strong></p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+          <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #2c3e50; margin-bottom: 20px; font-size: 24px;">Hei ${offerorCompanyName || 'Tilbudsgiver'}!</h2>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333;">
+              Ditt tilbud har blitt akseptert for prosjektet: <strong style="color: #2c3e50;">${selectedMessage.subject}</strong>
+            </p>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
+              <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 18px;">Prosjektdetaljer:</h3>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="padding: 5px 0; border-bottom: 1px solid #eee;"><strong>Kompetanse:</strong> ${selectedMessage.resource.competence}</li>
+                <li style="padding: 5px 0;"><strong>Oppdragsgiver:</strong> ${userCompany.real_contact_info.company_name}</li>
+              </ul>
+            </div>
+            
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 18px;">Kontaktinformasjon for oppdragsgiver:</h3>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="padding: 5px 0; border-bottom: 1px solid #d4edda;"><strong>Bedrift:</strong> ${userCompany.real_contact_info.company_name}</li>
+                <li style="padding: 5px 0; border-bottom: 1px solid #d4edda;"><strong>E-post:</strong> <a href="mailto:${userCompany.real_contact_info.email}" style="color: #007bff; text-decoration: none;">${userCompany.real_contact_info.email}</a></li>
+                <li style="padding: 5px 0; border-bottom: 1px solid #d4edda;"><strong>Telefon:</strong> <a href="tel:${userCompany.real_contact_info.phone}" style="color: #007bff; text-decoration: none;">${userCompany.real_contact_info.phone}</a></li>
+                <li style="padding: 5px 0;"><strong>Adresse:</strong> ${userCompany.real_contact_info.address}</li>
+              </ul>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-top: 30px;">
+              Du kan nå kontakte oppdragsgiver direkte for å diskutere videre detaljer.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
+              <p style="color: #666; font-size: 14px; margin: 0;">
+                <strong>Vennlig hilsen,<br/>Elfag Ressursdeling</strong>
+              </p>
+            </div>
+          </div>
+        </div>
       `;
 
       const sendingRes = await emailjs.send(
         'service_7nh9cjs',
         'template_6jjiksl',
         {
-          name: emailSubject,
-          message: emailHtml,
-          to_email: offerorEmail,
+          subject: emailSubject,
+          message: plainTextMessage,
+          html_message: emailHtml,
+          to_email: 'rusuland9@gmail.com',
           from_name: "Elfag Ressursdeling",
         },
         'PBojUtgTaeYCAp_4n'
       )
 
-      console.log("sendingRes=====>", sendingRes)
       setSuccessMessage('E-post sendt til tilbudsgiver!');
       setTimeout(() => {
         setSuccessMessage(null);
@@ -507,26 +539,6 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       }, 5000);
     }
   }
-
-  const handleMarkAsTaken = async (resourceId: string) => {
-    try {
-      const { error } = await supabase
-        .from('resources')
-        .update({ is_taken: true })
-        .eq('id', resourceId);
-
-      if (error) throw error;
-
-      // Refresh messages to update UI
-      loadMessages();
-      if (onMessageUpdate) {
-        onMessageUpdate();
-      }
-    } catch (error) {
-      console.error('Error marking resource as taken:', error);
-      setError('Kunne ikke markere ressursen som tatt. Prøv igjen senere.');
-    }
-  };
 
   const getDisplayName = (message: Message, isFromUser: boolean) => {
     const company = isFromUser ? message.from_company : message.to_company;
