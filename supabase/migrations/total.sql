@@ -166,6 +166,7 @@ CREATE TABLE IF NOT EXISTS messages (
   to_company_id uuid REFERENCES companies(id) NOT NULL,
   resource_id uuid REFERENCES resources(id) NOT NULL,
   subject text NOT NULL,
+  offeror_email text NOT NULL,
   content text NOT NULL,
   created_at timestamptz DEFAULT now(),
   read_at timestamptz,
