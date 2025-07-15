@@ -17,6 +17,8 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
 
+  console.log(user)
+
   const handleSubmit = async (e: React.FormEvent) => {
 
     e.preventDefault();
@@ -37,16 +39,12 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
         throw new Error('Kunne ikke finne din bedrift. Vennligst kontakt support.');
       }
 
-      // Get user's email from the company's real contact info
-      const userEmail = fromCompany.real_contact_info?.email || user.email || '';
-
-      // Prevent sending message to own company
       if (fromCompany.id === resource.company_id) {
         throw new Error('Du kan ikke sende melding til din egen bedrift');
       }
 
       // Create initial message
-      const { data: messageData, error: messageError } = await supabase
+      const { error: messageError } = await supabase
         .from('messages')
         .insert({
           from_company_id: fromCompany.id,
@@ -56,7 +54,7 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
             ? `Aksepterer tilbud: ${resource.competence}`
             : `Forespørsel: ${resource.competence}`,
           content: message.trim(),
-          offeror_email: userEmail
+          offeror_email: user.email
         })
         .select()
         .single();

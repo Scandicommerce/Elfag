@@ -30,6 +30,7 @@ export interface Message {
   content: string;
   created_at: string;
   read_at: string | null;
+  offeror_email?: string | null;
   from_company: {
     id: string;
     anonymous_id: string;
@@ -104,6 +105,7 @@ export type Tables = {
       created_at: string;
       read_at: string | null;
       thread_id: string | null;
+      offeror_email: string | null;
     };
     Insert: Omit<Tables['messages']['Row'], 'id' | 'created_at' | 'read_at'>;
     Update: Partial<Omit<Tables['messages']['Row'], 'id' | 'created_at'>>;

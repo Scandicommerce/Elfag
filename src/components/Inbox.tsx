@@ -150,6 +150,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
           created_at,
           read_at,
           thread_id,
+          offeror_email,
           from_company:from_company_id(
             id, 
             anonymous_id,
@@ -201,7 +202,6 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
           return isValid;
         });
 
-      // If no valid messages, let's try a simpler query approach
       if (validMessages.length === 0 && (messages || []).length > 0) {
         const fallbackMessages = (messages || []).map(msg => ({
           ...msg,
@@ -262,6 +262,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
           created_at,
           read_at,
           thread_id,
+          offeror_email,
           from_company:from_company_id(
             id, 
             anonymous_id,
@@ -370,7 +371,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
   };
 
 
-  const handleAwardOffer = async (messageId: string) => {
+  const handleAwardOffer = async (messageId: string, offerorEmail: string) => {
     if (!selectedMessage || !userCompanyId) return;
 
     try {
@@ -416,8 +417,8 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       }
       setSuccessMessage('Tilbud akseptert og kontaktinfo sendt');
       
-      // Send acceptance email immediately
-      await sendEmail(resourceData.contact_info, userCompanyId);
+      // Send acceptance email immediately with the offeror email
+      await sendEmail(resourceData.contact_info, userCompanyId, offerorEmail);
       
       setTimeout(() => {
         setSuccessMessage(null);
@@ -428,7 +429,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
     }
   };
 
-  const sendEmail = async (contactInfo: any, userCompanyId: string) => {    
+  const sendEmail = async (contactInfo: any, userCompanyId: string, offerorEmail: string) => {    
     try {
       if (!selectedMessage) {
         console.error('No selected message available');
@@ -520,7 +521,7 @@ Elfag Ressursdeling
           subject: emailSubject,
           message: plainTextMessage,
           html_message: emailHtml,
-          to_email: 'rusuland9@gmail.com',
+          to_email: offerorEmail,
           from_name: "Elfag Ressursdeling",
         },
         'PBojUtgTaeYCAp_4n'
@@ -658,7 +659,7 @@ Elfag Ressursdeling
                     <>
                       {!selectedMessage.read_at && (
                         <button
-                          onClick={() => handleAwardOffer(selectedMessage.thread_id || selectedMessage.id)}
+                          onClick={() => handleAwardOffer(selectedMessage.thread_id || selectedMessage.id, selectedMessage.offeror_email || '')}
                           className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1 rounded"
                         >
                           <Mail className="w-4 h-4" />
@@ -668,7 +669,7 @@ Elfag Ressursdeling
                       {selectedMessage.read_at && (
                         <div className="flex items-center gap-2 text-sm text-green-600">
                           <Check className="w-4 h-4" />
-                          Accepted
+                          Godkjent
                         </div>
                       )}
                     </>
