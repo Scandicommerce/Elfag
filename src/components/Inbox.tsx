@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Mail, Send, Lock, Loader, Check } from 'lucide-react';
+import { Mail, Send, Loader, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import emailjs from 'emailjs-com';
@@ -744,29 +744,6 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
                   })
                 )}
               </div>
-
-              {!selectedMessage.resource.is_taken && (
-                <div className="border-t pt-4 mt-auto">
-                  <h4 className="font-semibold mb-2">Svar</h4>
-                  <textarea
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-elfag-light focus:border-transparent"
-                    rows={4}
-                    placeholder="Skriv ditt svar her..."
-                  />
-                  <div className="flex justify-end mt-2">
-                    <button
-                      onClick={handleReply}
-                      disabled={!reply.trim()}
-                      className="flex items-center gap-2 bg-elfag-dark text-white px-4 py-2 rounded hover:bg-opacity-90 disabled:opacity-50"
-                    >
-                      <Send className="w-4 h-4" />
-                      Send svar
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div className="h-full flex items-center justify-center text-gray-500">
