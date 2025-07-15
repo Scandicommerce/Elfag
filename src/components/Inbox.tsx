@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Mail, Send, Lock, Loader, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Resend } from 'resend';
+import emailjs from 'emailjs-com';
 import type { Message } from '../types';
 
 interface InboxProps {
@@ -446,9 +446,19 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
         console.error('Failed to get user company info:', companyError);
         throw new Error('Could not get company information');
       }
+
+      // Get the offeror's email from the message
+      const offerorEmail = selectedMessage.from_company.real_contact_info?.email;
+      const offerorCompanyName = selectedMessage.from_company.real_contact_info?.company_name;
+
+      if (!offerorEmail) {
+        console.error('No offeror email available');
+        throw new Error('Could not get offeror email address');
+      }
+
       const emailSubject = `Tilbud Akseptert - ${selectedMessage.subject}`;
       const emailHtml = `
-        <h2>Hei Raniyuki65!</h2>
+        <h2>Hei ${offerorCompanyName || 'Tilbudsgiver'}!</h2>
         
         <p>Ditt tilbud har blitt akseptert for prosjektet: <strong>${selectedMessage.subject}</strong></p>
         
@@ -471,32 +481,19 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
         <p><strong>Vennlig hilsen,<br>Elfag Ressursdeling</strong></p>
       `;
 
-      // Call the Supabase Edge Function to send acceptance email
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      const sendingRes = await emailjs.send(
+        'service_7nh9cjs',
+        'template_6jjiksl',
+        {
+          name: emailSubject,
+          message: emailHtml,
+          to_email: offerorEmail,
+          from_name: "Elfag Ressursdeling",
         },
-        body: JSON.stringify({
-          to: "raniyuki65@gmail.com",
-          subject: emailSubject,
-          html: emailHtml
-        })
-      });
+        'PBojUtgTaeYCAp_4n'
+      )
 
-      console.log("response=====>", response)
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', errorText);
-        throw new Error(`Failed to send acceptance email: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.text();
-      console.log('Email sent successfully:', result);
-      
-      // Show success message to user
+      console.log("sendingRes=====>", sendingRes)
       setSuccessMessage('E-post sendt til tilbudsgiver!');
       setTimeout(() => {
         setSuccessMessage(null);

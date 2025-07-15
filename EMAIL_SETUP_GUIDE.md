@@ -100,13 +100,11 @@ When you press "Accept", the system can access:
 ## Example Email Flow
 
 **Scenario**: 
-- Job Poster: rusuland9@gmail.com (Company A)
 - Proposal Sender: marvelous.dev.tech9@gmail.com (Company B)
 
 **When Accept is clicked**:
-1. Email is sent FROM: rusuland9@gmail.com
 2. Email is sent TO: marvelous.dev.tech9@gmail.com
-3. Reply-to is set to: rusuland9@gmail.com
+3. Reply-to is set to: rusuland9@gmail.
 4. Subject: "Proposal Accepted - [Job Title]"
 
 ## Troubleshooting

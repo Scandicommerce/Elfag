@@ -4,7 +4,7 @@ import { CircuitBoard } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState('rusuland9@gmail.com');
+  const [email, setEmail] = useState('raniyuki65@gmail.com');
   const [password, setPassword] = useState('123456789');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
