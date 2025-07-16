@@ -16,9 +16,6 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
-
-  console.log(user)
-
   const handleSubmit = async (e: React.FormEvent) => {
 
     e.preventDefault();

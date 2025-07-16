@@ -180,16 +180,16 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       const validMessages = (messages || [])
         .map(msg => {
           // Handle potential array responses for relationships
-          const fromCompany = Array.isArray(msg.from_company) 
-            ? msg.from_company[0] 
+          const fromCompany = Array.isArray(msg.from_company)
+            ? msg.from_company[0]
             : msg.from_company;
-          const toCompany = Array.isArray(msg.to_company) 
-            ? msg.to_company[0] 
+          const toCompany = Array.isArray(msg.to_company)
+            ? msg.to_company[0]
             : msg.to_company;
-          const resource = Array.isArray(msg.resource) 
-            ? msg.resource[0] 
+          const resource = Array.isArray(msg.resource)
+            ? msg.resource[0]
             : msg.resource;
-          
+
           return {
             ...msg,
             from_company: fromCompany,
@@ -209,11 +209,10 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
           to_company: (Array.isArray(msg.to_company) ? msg.to_company[0] : msg.to_company) || { id: 'unknown', anonymous_id: 'Unknown' },
           resource: (Array.isArray(msg.resource) ? msg.resource[0] : msg.resource) || { id: 'unknown', competence: 'Unknown' }
         }));
-        
+
         setMessages(fallbackMessages as unknown as Message[]);
         return;
       }
-
       // Group messages by thread and get the latest message from each thread
       const threadMap = new Map();
       validMessages.forEach(msg => {
@@ -224,9 +223,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       });
 
       const latestMessages = Array.from(threadMap.values());
-      
       setMessages(latestMessages as Message[]);
-
       // If there's a selected message, ensure it stays selected after refresh
       if (selectedMessage) {
         const updatedSelectedMessage = latestMessages.find(
@@ -237,7 +234,6 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
           setSelectedMessage(updatedSelectedMessage);
         }
       }
-
       // Notify parent component if needed
       if (onMessageUpdate) {
         onMessageUpdate();
@@ -290,16 +286,16 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       const validMessages = messages
         .map(msg => {
           // Handle potential array responses for relationships
-          const fromCompany = Array.isArray(msg.from_company) 
-            ? msg.from_company[0] 
+          const fromCompany = Array.isArray(msg.from_company)
+            ? msg.from_company[0]
             : msg.from_company;
-          const toCompany = Array.isArray(msg.to_company) 
-            ? msg.to_company[0] 
+          const toCompany = Array.isArray(msg.to_company)
+            ? msg.to_company[0]
             : msg.to_company;
-          const resource = Array.isArray(msg.resource) 
-            ? msg.resource[0] 
+          const resource = Array.isArray(msg.resource)
+            ? msg.resource[0]
             : msg.resource;
-          
+
           return {
             ...msg,
             from_company: fromCompany,
@@ -312,8 +308,8 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       setSelectedThread(validMessages as Message[]);
 
       // Mark unread messages as read
-      const unreadMessages = validMessages.filter(msg => 
-        !msg.read_at && 
+      const unreadMessages = validMessages.filter(msg =>
+        !msg.read_at &&
         msg.to_company.id === userCompanyId
       );
 
@@ -335,45 +331,11 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
     }
   };
 
-  const handleReply = async () => {
-    if (!selectedMessage || !reply.trim() || !userCompanyId) return;
-
-    try {
-      const threadId = selectedMessage.thread_id || selectedMessage.id;
-      const toCompanyId = selectedMessage.from_company.id === userCompanyId
-        ? selectedMessage.to_company.id
-        : selectedMessage.from_company.id;
-
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          from_company_id: userCompanyId,
-          to_company_id: toCompanyId,
-          resource_id: selectedMessage.resource.id,
-          subject: `Re: ${selectedMessage.subject}`,
-          content: reply,
-          thread_id: threadId
-        });
-
-      if (error) throw error;
-
-      setReply('');
-      loadMessages();
-      loadThread(threadId);
-      
-      if (onMessageUpdate) {
-        onMessageUpdate();
-      }
-    } catch (error) {
-      console.error('Error sending reply:', error);
-      setError('Kunne ikke sende svar. Vennligst prøv igjen senere.');
-    }
-  };
-
 
   const handleAwardOffer = async (messageId: string, offerorEmail: string) => {
     if (!selectedMessage || !userCompanyId) return;
 
+    console.log("🔴 Offeror email:", offerorEmail);
     try {
       // Update the read_at field to mark message as read
       const { error: updateError } = await supabase
@@ -386,7 +348,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
         setError(`Failed to update message: ${updateError.message}`);
         return;
       }
-      
+
       console.log("✅ Message marked as read successfully");
 
       // Continue with the rest of the acceptance logic
@@ -402,24 +364,24 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
         setError('Kontaktinformasjon ikke funnet for denne ressursen.');
         return;
       }
-      
+
       // Update the local state to reflect the change
       setSelectedMessage({
         ...selectedMessage,
         read_at: new Date().toISOString()
       });
-      
+
       await loadMessages();
       await loadThread(messageId);
-      
+
       if (onMessageUpdate) {
         onMessageUpdate();
       }
       setSuccessMessage('Tilbud akseptert og kontaktinfo sendt');
-      
+
       // Send acceptance email immediately with the offeror email
       await sendEmail(resourceData.contact_info, userCompanyId, offerorEmail);
-      
+
       setTimeout(() => {
         setSuccessMessage(null);
       }, 3000);
@@ -429,7 +391,7 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
     }
   };
 
-  const sendEmail = async (contactInfo: any, userCompanyId: string, offerorEmail: string) => {    
+  const sendEmail = async (contactInfo: any, userCompanyId: string, offerorEmail: string) => {
     try {
       if (!selectedMessage) {
         console.error('No selected message available');
@@ -450,14 +412,13 @@ export const Inbox: React.FC<InboxProps> = ({ onMessageUpdate }) => {
       const offerorCompanyName = selectedMessage.from_company.real_contact_info?.company_name;
 
       const emailSubject = `Tilbud Akseptert - ${selectedMessage.subject}`;
-      
+
       // Plain text version
-      const plainTextMessage = `
-Hei ${offerorCompanyName || 'Tilbudsgiver'}!
 
-Ditt tilbud har blitt akseptert for prosjektet: ${selectedMessage.subject}
-
-Prosjektdetaljer:
+      console.log(user)
+      const plainTextMessage = `Hei ${offerorCompanyName || 'Tilbudsgiver'}!
+                            Ditt tilbud har blitt akseptert for prosjektet: ${selectedMessage.subject}
+                            Prosjektdetaljer:
 - Kompetanse: ${selectedMessage.resource.competence}
 - Oppdragsgiver: ${userCompany.real_contact_info.company_name}
 
@@ -473,65 +434,32 @@ Vennlig hilsen,
 Elfag Ressursdeling
       `;
 
-      // HTML version with inline styles for better email client compatibility
-      const emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-          <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #2c3e50; margin-bottom: 20px; font-size: 24px;">Hei ${offerorCompanyName || 'Tilbudsgiver'}!</h2>
-            
-            <p style="font-size: 16px; line-height: 1.6; color: #333;">
-              Ditt tilbud har blitt akseptert for prosjektet: <strong style="color: #2c3e50;">${selectedMessage.subject}</strong>
-            </p>
-            
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-              <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 18px;">Prosjektdetaljer:</h3>
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="padding: 5px 0; border-bottom: 1px solid #eee;"><strong>Kompetanse:</strong> ${selectedMessage.resource.competence}</li>
-                <li style="padding: 5px 0;"><strong>Oppdragsgiver:</strong> ${userCompany.real_contact_info.company_name}</li>
-              </ul>
-            </div>
-            
-            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #28a745;">
-              <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 18px;">Kontaktinformasjon for oppdragsgiver:</h3>
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="padding: 5px 0; border-bottom: 1px solid #d4edda;"><strong>Bedrift:</strong> ${userCompany.real_contact_info.company_name}</li>
-                <li style="padding: 5px 0; border-bottom: 1px solid #d4edda;"><strong>E-post:</strong> <a href="mailto:${userCompany.real_contact_info.email}" style="color: #007bff; text-decoration: none;">${userCompany.real_contact_info.email}</a></li>
-                <li style="padding: 5px 0; border-bottom: 1px solid #d4edda;"><strong>Telefon:</strong> <a href="tel:${userCompany.real_contact_info.phone}" style="color: #007bff; text-decoration: none;">${userCompany.real_contact_info.phone}</a></li>
-                <li style="padding: 5px 0;"><strong>Adresse:</strong> ${userCompany.real_contact_info.address}</li>
-              </ul>
-            </div>
-            
-            <p style="font-size: 16px; line-height: 1.6; color: #333; margin-top: 30px;">
-              Du kan nå kontakte oppdragsgiver direkte for å diskutere videre detaljer.
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
-              <p style="color: #666; font-size: 14px; margin: 0;">
-                <strong>Vennlig hilsen,<br/>Elfag Ressursdeling</strong>
-              </p>
-            </div>
-          </div>
-        </div>
-      `;
+      console.log("🔴 Offeror email: ==========================================>", offerorEmail);
+      const sendingRes = await emailjs.send("service_7nh9cjs", "template_6jjiksl", {
+        name: emailSubject,
+        message: plainTextMessage,
+        reply_email: "no-reply@email.com",
+        to_email: offerorEmail,
+        from_name: "Elfag Ressursdeling",
 
-      const sendingRes = await emailjs.send(
-        'service_7nh9cjs',
-        'template_6jjiksl',
-        {
-          subject: emailSubject,
-          message: plainTextMessage,
-          html_message: emailHtml,
-          to_email: offerorEmail,
-          from_name: "Elfag Ressursdeling",
-        },
-        'PBojUtgTaeYCAp_4n'
-      )
+      }, 'PBojUtgTaeYCAp_4n');
 
-      setSuccessMessage('E-post sendt til tilbudsgiver!');
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
-      
+      console.log("🔴 Email parameters:", sendingRes);
+
+      if (sendingRes.status === 200) {
+        console.log("✅ Email sent successfully!");
+        setSuccessMessage('E-post sendt til tilbudsgiver!');
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 5000);
+      } else {
+        console.error("❌ Email failed to send:", sendingRes);
+        setError('Kunne ikke sende e-post. Prøv igjen senere.');
+        setTimeout(() => {
+          setError(null);
+        }, 5000);
+      }
+
     } catch (error) {
       console.error('Error sending acceptance email:', error);
       setError('Kunne ikke sende e-post. Prøv igjen senere.');
@@ -544,7 +472,7 @@ Elfag Ressursdeling
   const getDisplayName = (message: Message, isFromUser: boolean) => {
     const company = isFromUser ? message.from_company : message.to_company;
     const isShared = contactShared[message.thread_id || message.id];
-    
+
     if (isFromUser) return 'Du';
     if (isShared && company.real_contact_info) {
       return company.real_contact_info.company_name;
@@ -602,21 +530,20 @@ Elfag Ressursdeling
             <div className="divide-y">
               {messages.map((message) => {
                 const isUnread = !message.read_at && message.to_company.id === userCompanyId;
-                const isSelected = selectedMessage?.id === message.id || 
-                                 selectedMessage?.thread_id === message.id ||
-                                 message.thread_id === selectedMessage?.id;
+                const isSelected = selectedMessage?.id === message.id ||
+                  selectedMessage?.thread_id === message.id ||
+                  message.thread_id === selectedMessage?.id;
                 const displayName = getDisplayName(
                   message,
                   message.from_company.id === userCompanyId
                 );
-                
+
                 return (
                   <button
                     key={message.id}
                     onClick={() => setSelectedMessage(message)}
-                    className={`w-full p-4 text-left hover:bg-gray-50 ${
-                      isSelected ? 'bg-gray-50' : ''
-                    } ${isUnread ? 'font-semibold bg-elfag-light bg-opacity-10' : ''}`}
+                    className={`w-full p-4 text-left hover:bg-gray-50 ${isSelected ? 'bg-gray-50' : ''
+                      } ${isUnread ? 'font-semibold bg-elfag-light bg-opacity-10' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-1">
                       <span className="text-sm">
@@ -714,23 +641,22 @@ Elfag Ressursdeling
                   selectedThread.map((message) => {
                     const isFromUser = message.from_company.id === userCompanyId;
                     const isContactMessage = message.subject === 'Kontaktinformasjon delt';
-                    
+
                     // Only show offer provider's contact info to job poster when awarded
                     const showContactInfo = message.from_company.real_contact_info &&
-                                         !isContactMessage &&
-                                         selectedMessage.to_company.id === userCompanyId && // Current user is job poster
-                                         message.from_company.id === selectedMessage.from_company.id; // Show only offer provider's info
-                    
+                      !isContactMessage &&
+                      selectedMessage.to_company.id === userCompanyId && // Current user is job poster
+                      message.from_company.id === selectedMessage.from_company.id; // Show only offer provider's info
+
                     return (
                       <div
                         key={message.id}
-                        className={`p-4 rounded ${
-                          isContactMessage
-                            ? 'bg-green-50 text-center' 
-                            : isFromUser
-                              ? 'bg-elfag-light bg-opacity-10 ml-8'
-                              : 'bg-gray-50 mr-8'
-                        }`}
+                        className={`p-4 rounded ${isContactMessage
+                          ? 'bg-green-50 text-center'
+                          : isFromUser
+                            ? 'bg-elfag-light bg-opacity-10 ml-8'
+                            : 'bg-gray-50 mr-8'
+                          }`}
                       >
                         <div className="flex justify-between text-sm text-gray-500 mb-2">
                           <div>
