@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, LogOut } from 'lucide-react';
+import { CircuitBoard, LogOut } from 'lucide-react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -21,16 +21,9 @@ export const Layout: React.FC = () => {
       <header className="bg-elfag-dark text-white px-6 py-4 shadow-lg">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Logo */}
+            {/* Logo - Same as login page */}
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 bg-elfag-light rounded-lg flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-elfag-accent rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                </div>
-              </div>
+              <CircuitBoard className="w-12 h-12 text-white" />
               <div>
                 <h1 className="text-xl font-bold">Elfag</h1>
                 <p className="text-xs text-elfag-light font-medium">Ressursdeling</p>
