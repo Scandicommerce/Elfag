@@ -10,10 +10,9 @@ export interface Resource {
   location: string;
   comments: string;
   contactInfo: string;
-  isSpecial: boolean;
+  resourceType: 'available_staffing' | 'want_staffing' | 'special_competence' | 'special_tools';
+  specialCompetencies?: string[]; // For checkbox selection
   is_taken?: boolean;
-  price?: number;
-  priceType?: 'hourly' | 'fixed' | 'negotiable';
   acceptedByCompanyId?: string;
 }
 
@@ -85,10 +84,9 @@ export type Tables = {
       comments: string | null;
       contact_info: string;
       created_at: string;
-      is_special: boolean;
+      resource_type: string;
+      special_competencies: string[] | null;
       is_taken: boolean;
-      price: number | null;
-      price_type: string;
       accepted_by_company_id: string | null;
     };
     Insert: Omit<Tables['resources']['Row'], 'id' | 'created_at'>;

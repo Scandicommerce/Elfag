@@ -9,6 +9,19 @@ interface ContactButtonProps {
   onMessageSent?: () => void;
 }
 
+const getResourceTypeText = (resourceType: Resource['resourceType']) => {
+  switch (resourceType) {
+    case 'available_staffing':
+      return 'tilgjengelig bemanning';
+    case 'want_staffing':
+      return 'forespørsel om bemanning';
+    case 'special_competence':
+      return 'spesialkompetanse';
+    case 'special_tools':
+      return 'spesialverktøy';
+  }
+};
+
 export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessageSent }) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -16,10 +29,11 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
-  const handleSubmit = async (e: React.FormEvent) => {
 
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !user || !resource.company_id) return;
+    
     try {
       setSending(true);
       setError('');
@@ -40,6 +54,8 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
         throw new Error('Du kan ikke sende melding til din egen bedrift');
       }
 
+      const resourceTypeText = getResourceTypeText(resource.resourceType);
+      
       // Create initial message
       const { error: messageError } = await supabase
         .from('messages')
@@ -47,138 +63,134 @@ export const ContactButton: React.FC<ContactButtonProps> = ({ resource, onMessag
           from_company_id: fromCompany.id,
           to_company_id: resource.company_id,
           resource_id: resource.id,
-          subject: resource.price 
-            ? `Aksepterer tilbud: ${resource.competence}`
-            : `Forespørsel: ${resource.competence}`,
-          content: message.trim(),
-          offeror_email: user.email
-        })
-        .select()
-        .single();
+          subject: `Interessert i ${resourceTypeText}: ${resource.competence}`,
+          content: message,
+          offeror_email: fromCompany.real_contact_info?.email || null
+        });
 
       if (messageError) {
-        console.error('Error creating message:', messageError);
-        throw messageError;
-      }
-
-      // If this is an offer acceptance, handle the resource acceptance
-      if (resource.price) {
-        try {
-          await supabase.rpc('accept_resource', {
-            p_resource_id: resource.id,
-            p_accepting_company_id: fromCompany.id
-          });
-        } catch (acceptError) {
-          console.error('Error accepting resource:', acceptError);
-          throw new Error('Kunne ikke akseptere tilbudet. Vennligst prøv igjen senere.');
-        }
+        console.error('Error sending message:', messageError);
+        throw new Error('Kunne ikke sende meldingen. Vennligst prøv igjen.');
       }
 
       setSent(true);
-      setMessage('');
-      if (onMessageSent) {
-        onMessageSent();
-      }
+      onMessageSent?.();
+      
       setTimeout(() => {
         setIsOpen(false);
         setSent(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError(err instanceof Error ? err.message : 'Kunne ikke sende melding. Prøv igjen senere.');
+        setMessage('');
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('Error in handleSubmit:', err);
+      setError(err.message || 'En feil oppstod ved sending av melding');
     } finally {
       setSending(false);
     }
   };
 
+  const resetForm = () => {
+    setIsOpen(false);
+    setMessage('');
+    setError('');
+    setSent(false);
+    setSending(false);
+  };
+
+  if (sent) {
+    return (
+      <div className="flex items-center gap-2 text-green-600 text-sm">
+        <Check className="w-4 h-4" />
+        <span>Melding sendt!</span>
+      </div>
+    );
+  }
+
   return (
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 text-sm text-elfag-dark hover:text-opacity-80"
+        className="flex items-center gap-2 px-3 py-1 text-sm bg-elfag-dark text-white rounded hover:bg-elfag-light transition-colors"
       >
-        {resource.price ? (
-          <Check className="w-4 h-4" />
-        ) : (
-          <MessageSquare className="w-4 h-4" />
-        )}
-        {resource.price ? 'Aksepter tilbud' : 'Kontakt'}
+        <MessageSquare className="w-3 h-3" />
+        Send melding
       </button>
 
       {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold">
-                {resource.price ? 'Aksepter tilbud' : 'Send melding'}: {resource.competence}
-              </h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Send melding</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Angående: <span className="font-medium">{resource.competence}</span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Til: <span className="font-mono">{resource.anonymId}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={resetForm}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Din melding
+                  </label>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={6}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-elfag-light focus:border-transparent resize-none"
+                    placeholder={`Hei! Jeg er interessert i deres ${getResourceTypeText(resource.resourceType)}...`}
+                    required
+                    disabled={sending}
+                  />
+                </div>
+
+                <div className="bg-elfag-bg p-3 rounded text-xs text-gray-600">
+                  <p className="font-medium mb-1">ℹ️ Viktig informasjon:</p>
+                  <ul className="space-y-1">
+                    <li>• Din melding blir sendt anonymt</li>
+                    <li>• Kontaktinformasjon deles kun ved aksept</li>
+                    <li>• Vær profesjonell og konkret i din henvendelse</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={sending || !message.trim()}
+                    className="flex-1 bg-elfag-dark text-white py-2 px-4 rounded hover:bg-elfag-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {sending ? 'Sender...' : 'Send melding'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleSubmit} className="p-4">
-              {error && (
-                <div className="mb-4 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
-                  {error}
-                </div>
-              )}
-
-              {sent ? (
-                <div className="bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded">
-                  {resource.price ? 'Tilbud akseptert!' : 'Melding sendt!'} Lukker...
-                </div>
-              ) : (
-                <>
-                  {resource.price && (
-                    <div className="mb-4 bg-elfag-light bg-opacity-20 p-4 rounded">
-                      <h4 className="font-semibold mb-2">Tilbudsinformasjon:</h4>
-                      <p>Pris: {resource.price} kr{resource.priceType === 'hourly' ? '/time' : ''}</p>
-                      <p className="mt-2 text-sm text-gray-600">
-                        Ved å akseptere dette tilbudet vil kontaktinformasjon automatisk deles mellom partene.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {resource.price ? 'Melding til tilbyder' : 'Din melding'}
-                    </label>
-                    <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      rows={4}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-elfag-light focus:border-transparent"
-                      placeholder={resource.price ? 'Skriv en melding om når du ønsker å starte...' : 'Skriv din melding her...'}
-                      required
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsOpen(false)}
-                      className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                    >
-                      Avbryt
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={sending || !message.trim()}
-                      className="px-4 py-2 bg-elfag-dark text-white rounded hover:bg-opacity-90 disabled:opacity-50"
-                    >
-                      {sending ? 'Sender...' : resource.price ? 'Aksepter tilbud' : 'Send melding'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </form>
           </div>
         </div>
       )}
     </>
   );
-};
+}; 

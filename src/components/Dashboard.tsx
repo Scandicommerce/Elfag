@@ -3,11 +3,14 @@ import { ResourceTable } from './ResourceTable';
 import { AddResourceForm } from './AddResourceForm';
 import { Inbox } from './Inbox';
 import { RegisterCompany } from './RegisterCompany';
+import { UserProfile } from './UserProfile';
+import { ResourceDetail } from './ResourceDetail';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { Building2 } from 'lucide-react';
 import type { Resource } from '../types';
 
-type Tab = 'marketplace' | 'my-offers' | 'my-requests';
+type Tab = 'marketplace' | 'my-offers' | 'my-requests' | 'messages' | 'profile';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -19,6 +22,7 @@ export const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasCompany, setHasCompany] = useState(true);
   const [userCompanyId, setUserCompanyId] = useState<string | null>(null);
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
   // Set up real-time subscription for resources
   useEffect(() => {
@@ -42,7 +46,7 @@ export const Dashboard: React.FC = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user, userCompanyId]); // Add userCompanyId as dependency
+  }, [user, userCompanyId]);
 
   useEffect(() => {
     if (user) {
@@ -52,50 +56,31 @@ export const Dashboard: React.FC = () => {
 
   const loadUserCompany = async () => {
     try {
-      setLoading(true);
-      const { data: company, error } = await supabase
+      const { data, error } = await supabase
         .from('companies')
         .select('id')
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
 
-      if (!company) {
+      if (!data) {
         setHasCompany(false);
-        setUserCompanyId(null);
+        setLoading(false);
         return;
       }
 
-      setUserCompanyId(company.id);
+      setUserCompanyId(data.id);
       setHasCompany(true);
-      await loadAllResources(); // Load resources after company is loaded
+      await loadAllResources();
     } catch (error) {
       console.error('Error loading user company:', error);
       setError('Kunne ikke laste bedriftsinformasjon');
-    } finally {
       setLoading(false);
     }
   };
-
-  const transformResources = (data: any[]) => 
-    data
-      .filter(resource => resource.company_id)
-      .map(resource => ({
-        ...resource,
-        id: resource.id,
-        company_id: resource.company_id,
-        anonymId: resource.anonymous_id,
-        period: {
-          from: new Date(resource.period_from),
-          to: new Date(resource.period_to)
-        },
-        isSpecial: resource.is_special,
-        is_taken: resource.is_taken,
-        price: resource.price,
-        priceType: resource.price_type,
-        acceptedByCompanyId: resource.accepted_by_company_id
-      }));
 
   const loadAllResources = async () => {
     if (!userCompanyId) return;
@@ -104,9 +89,9 @@ export const Dashboard: React.FC = () => {
       setLoading(true);
       const currentDate = new Date().toISOString();
       
-      // Load marketplace resources
+      // Load marketplace resources - use simple query without join
       const { data: marketplaceData, error: marketplaceError } = await supabase
-        .from('anonymized_resources')
+        .from('resources')
         .select('*')
         .gte('period_to', currentDate)
         .eq('is_taken', false)
@@ -114,28 +99,79 @@ export const Dashboard: React.FC = () => {
 
       if (marketplaceError) throw marketplaceError;
 
-      // Load my offers (resources I've posted)
+      // Load my offers
       const { data: myOffersData, error: myOffersError } = await supabase
-        .from('anonymized_resources')
+        .from('resources')
         .select('*')
         .eq('company_id', userCompanyId)
         .order('created_at', { ascending: false });
 
-
       if (myOffersError) throw myOffersError;
 
-      // Load my requests (resources I've requested or accepted)
+      // Load my requests
       const { data: myRequestsData, error: myRequestsError } = await supabase
-        .from('anonymized_resources')
+        .from('resources')
         .select('*')
         .eq('accepted_by_company_id', userCompanyId)
         .order('created_at', { ascending: false });
 
       if (myRequestsError) throw myRequestsError;
 
-      setResources(transformResources(marketplaceData || []));
-      setMyOffers(transformResources(myOffersData || []));
-      setMyRequests(transformResources(myRequestsData || []));
+      // Get all unique company IDs
+      const allResources = [...(marketplaceData || []), ...(myOffersData || []), ...(myRequestsData || [])];
+      const companyIds = [...new Set(allResources.map(r => r.company_id))];
+
+      // Load company data separately
+      const { data: companiesData, error: companiesError } = await supabase
+        .from('companies')
+        .select('id, anonymous_id')
+        .in('id', companyIds);
+
+      if (companiesError) {
+        console.error('Error loading companies:', companiesError);
+      }
+
+      // Create a company lookup map
+      const companyMap = (companiesData || []).reduce((map, company) => {
+        map[company.id] = company.anonymous_id;
+        return map;
+      }, {} as Record<string, string>);
+
+      // Transform resources with company data
+      const transformWithCompanyData = (resources: any[]) => {
+        return resources.map(item => ({
+          id: item.id,
+          company_id: item.company_id,
+          anonymId: companyMap[item.company_id] || `company_${item.company_id.slice(-6)}`,
+          competence: item.competence,
+          period: {
+            from: new Date(item.period_from),
+            to: new Date(item.period_to)
+          },
+          location: item.location,
+          comments: item.comments || '',
+          contactInfo: item.contact_info,
+          // Handle both old and new schema
+          resourceType: item.resource_type || (item.is_special ? 'special_competence' : 'available_staffing'),
+          specialCompetencies: item.special_competencies || [],
+          is_taken: item.is_taken,
+          acceptedByCompanyId: item.accepted_by_company_id
+        }));
+      };
+
+      setResources(transformWithCompanyData(marketplaceData || []));
+      setMyOffers(transformWithCompanyData(myOffersData || []));
+      setMyRequests(transformWithCompanyData(myRequestsData || []));
+      
+      // Debug logging
+      console.log('Dashboard Data Debug:');
+      console.log('Raw marketplace data:', marketplaceData?.length || 0, 'items');
+      console.log('Raw my offers data:', myOffersData?.length || 0, 'items');
+      console.log('Raw my requests data:', myRequestsData?.length || 0, 'items');
+      console.log('Company map:', companyMap);
+      console.log('Transformed resources:', transformWithCompanyData(marketplaceData || []).length);
+      console.log('Sample resource:', transformWithCompanyData(marketplaceData || [])[0]);
+      
       setError(null);
     } catch (error) {
       console.error('Error loading resources:', error);
@@ -160,10 +196,9 @@ export const Dashboard: React.FC = () => {
           location: newResource.location,
           comments: newResource.comments,
           contact_info: newResource.contactInfo,
-          is_special: newResource.isSpecial,
-          is_taken: false,
-          price: newResource.price,
-          price_type: newResource.priceType
+          resource_type: newResource.resourceType,
+          special_competencies: newResource.specialCompetencies || [],
+          is_taken: false
         });
 
       if (error) throw error;
@@ -184,45 +219,94 @@ export const Dashboard: React.FC = () => {
     loadAllResources();
   };
 
+  const handleResourceClick = (resource: Resource) => {
+    setSelectedResource(resource);
+  };
+
+  const handleBackToList = () => {
+    setSelectedResource(null);
+  };
+
+  const getResourcesByType = (resources: Resource[], type: Resource['resourceType']) => {
+    const filtered = resources.filter(r => r.resourceType === type);
+    console.log(`Filtering resources by type ${type}:`, {
+      total: resources.length,
+      filtered: filtered.length,
+      sampleTypes: resources.slice(0, 3).map(r => ({ id: r.id, type: r.resourceType, competence: r.competence }))
+    });
+    return filtered;
+  };
+
   const renderTabContent = () => {
     if (loading) {
       return (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-elfag-dark mx-auto"></div>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-elfag-dark mx-auto"></div>
+          <p className="mt-4 text-gray-600">Laster...</p>
         </div>
       );
     }
 
     if (error) {
       return (
-        <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 border border-red-400 text-red-700 px-6 py-4 rounded">
           {error}
         </div>
+      );
+    }
+
+    if (selectedResource) {
+      return (
+        <ResourceDetail
+          resource={selectedResource}
+          onBack={handleBackToList}
+          onMessageSent={handleMessageSent}
+          userCompanyId={userCompanyId}
+        />
       );
     }
 
     switch (activeTab) {
       case 'marketplace':
         return (
-          <>
+          <div className="space-y-8">
             <ResourceTable 
               title="TILGJENGELIG BEMANNING" 
-              resources={resources.filter(r => !r.isSpecial)}
+              resources={getResourcesByType(resources, 'available_staffing')}
               onMessageSent={handleMessageSent}
+              onResourceClick={handleResourceClick}
+              showCompactView
+            />
+            <ResourceTable 
+              title="ØNSKER BEMANNING" 
+              resources={getResourcesByType(resources, 'want_staffing')}
+              onMessageSent={handleMessageSent}
+              onResourceClick={handleResourceClick}
+              showCompactView
             />
             <ResourceTable 
               title="SPESIALKOMPETANSE TIL UTLÅN" 
-              resources={resources.filter(r => r.isSpecial)}
+              resources={getResourcesByType(resources, 'special_competence')}
               onMessageSent={handleMessageSent}
+              onResourceClick={handleResourceClick}
+              showCompactView
             />
-          </>
+            <ResourceTable 
+              title="SPESIALVERKTØY" 
+              resources={getResourcesByType(resources, 'special_tools')}
+              onMessageSent={handleMessageSent}
+              onResourceClick={handleResourceClick}
+              showCompactView
+            />
+          </div>
         );
       case 'my-offers':
         return (
           <ResourceTable 
-            title="MINE UTLÅN" 
+            title="MINE ANNONSER" 
             resources={myOffers}
             onMessageSent={handleMessageSent}
+            onResourceClick={handleResourceClick}
             showStatus
             showActions
           />
@@ -233,30 +317,43 @@ export const Dashboard: React.FC = () => {
             title="MINE FORESPØRSLER" 
             resources={myRequests}
             onMessageSent={handleMessageSent}
+            onResourceClick={handleResourceClick}
             showStatus
             showActions
           />
         );
+      case 'messages':
+        return <Inbox onMessageUpdate={loadAllResources} />;
+      case 'profile':
+        return <UserProfile />;
+      default:
+        return null;
     }
   };
 
   return (
     <div className="space-y-8">
-      <div className="bg-white p-6 rounded border-2 border-elfag-dark shadow-industrial">
-        <h1 className="text-2xl font-bold mb-4">Innleie av Arbeidskraft</h1>
-        <p className="text-gray-700 mb-4">
-          Som Elfag-bedrift kan du enkelt dele og finne tilgjengelige fagarbeidere. 
-          Dette verktøyet er designet for å forenkle prosessen med å dele ressurser 
-          mellom Elfag-medlemmer.
-        </p>
-        <div className="bg-elfag-light bg-opacity-20 p-4 rounded">
-          <h2 className="font-bold mb-2">Viktig informasjon:</h2>
-          <ul className="list-disc list-inside space-y-2">
-            <li>All kommunikasjon er anonym inntil begge parter er enige om å dele kontaktinformasjon</li>
-            <li>Du kan enkelt administrere dine egne ressurser og meldinger</li>
-            <li>Avtaler og kontrakter utformes direkte mellom partene</li>
-            <li>Ressurser fjernes automatisk når perioden er utløpt eller avtale er inngått</li>
-          </ul>
+      <div className="bg-white p-6 rounded border-2 border-elfag-dark shadow-modern">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-lg bg-elfag-bg">
+            <Building2 className="w-8 h-8 text-elfag-dark" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold mb-2">Elfag Ressursdeling</h1>
+            <p className="text-gray-700 mb-4">
+              Plattform for deling av arbeidskraft og spesialkompetanse mellom Elfag-bedrifter.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-elfag-bg p-3 rounded">
+                <h3 className="font-semibold mb-1">🔒 Anonymt system</h3>
+                <p className="text-gray-600">All kommunikasjon er anonym til du aksepterer tilbud</p>
+              </div>
+              <div className="bg-elfag-bg p-3 rounded">
+                <h3 className="font-semibold mb-1">⚡ Sanntidsoppdateringer</h3>
+                <p className="text-gray-600">Se nye tilbud og forespørsler umiddelbart</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -264,46 +361,33 @@ export const Dashboard: React.FC = () => {
         <RegisterCompany onRegistered={handleCompanyRegistered} />
       ) : (
         <>
-          <Inbox onMessageUpdate={loadAllResources} />
-
           <AddResourceForm onAdd={handleAddResource} />
 
-          <div className="bg-white rounded border-2 border-elfag-dark shadow-industrial">
+          <div className="bg-white rounded border-2 border-elfag-dark shadow-modern">
             <div className="border-b border-elfag-dark">
-              <nav className="flex">
-                <button
-                  onClick={() => setActiveTab('marketplace')}
-                  className={`px-6 py-3 text-sm font-medium ${
-                    activeTab === 'marketplace'
-                      ? 'bg-elfag-light text-elfag-dark'
-                      : 'text-gray-500 hover:text-elfag-dark hover:bg-elfag-light hover:bg-opacity-50'
-                  }`}
-                >
-                  Markedsplass
-                </button>
-                <button
-                  onClick={() => setActiveTab('my-offers')}
-                  className={`px-6 py-3 text-sm font-medium ${
-                    activeTab === 'my-offers'
-                      ? 'bg-elfag-light text-elfag-dark'
-                      : 'text-gray-500 hover:text-elfag-dark hover:bg-elfag-light hover:bg-opacity-50'
-                  }`}
-                >
-                  Mine utlån
-                </button>
-                <button
-                  onClick={() => setActiveTab('my-requests')}
-                  className={`px-6 py-3 text-sm font-medium ${
-                    activeTab === 'my-requests'
-                      ? 'bg-elfag-light text-elfag-dark'
-                      : 'text-gray-500 hover:text-elfag-dark hover:bg-elfag-light hover:bg-opacity-50'
-                  }`}
-                >
-                  Mine forespørsler
-                </button>
+              <nav className="flex flex-wrap">
+                {[
+                  { id: 'marketplace', label: 'Markedsplass' },
+                  { id: 'my-offers', label: 'Mine annonser' },
+                  { id: 'my-requests', label: 'Mine forespørsler' },
+                  { id: 'messages', label: 'Meldinger' },
+                  { id: 'profile', label: 'Min side' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as Tab)}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === tab.id
+                        ? 'border-elfag-dark bg-elfag-bg text-elfag-dark'
+                        : 'border-transparent text-gray-500 hover:text-elfag-dark hover:border-gray-300'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </nav>
             </div>
-            <div className="p-4">
+            <div className="p-6">
               {renderTabContent()}
             </div>
           </div>

@@ -4,14 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        'elfag-dark': '#173300',
-        'elfag-light': '#C8FC3C',
+        'elfag-dark': '#1e3a8a',   // Modern deep blue
+        'elfag-light': '#3b82f6',  // Bright blue
+        'elfag-accent': '#06b6d4', // Cyan accent
+        'elfag-bg': '#f8fafc',     // Light background
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        'industrial': '4px 4px 0 0 #173300',
+        'industrial': '4px 4px 0 0 #1e3a8a',
+        'modern': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       }
     },
   },
